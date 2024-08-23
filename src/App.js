@@ -13,9 +13,11 @@ function App() {
 
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  
+  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com";   //http://localhost:3001/create
 
   const addEmployee = () => {
-    Axios.post("http://localhost:3001/create", {
+    Axios.post(`${baseURL}/create`, {
       name: name,
       age: age,
       country: country,
@@ -36,14 +38,14 @@ function App() {
   };
 
   const getEmployees = () => {
-    Axios.get("http://localhost:3001/employees").then((response) => {
+    Axios.get(`${baseURL}/employees`).then((response) => {
       console.log(response.data); // 打印数据到控制台
       setEmployeeList(response.data);
     });
   };
 
   const updateEmployeeWage = (id) => {
-    Axios.put("http://localhost:3001/update", { wage: newWage, id: id }).then(
+    Axios.put(`${baseURL}/update`, { wage: newWage, id: id }).then(
       (response) => {
         setEmployeeList(
           employeeList.map((val) => {
@@ -64,7 +66,7 @@ function App() {
   };
 
   const deleteEmployee = (id) => {
-    Axios.delete(`http://localhost:3001/delete/${id}`).then((response) => {
+    Axios.delete(`${baseURL}/delete/${id}`).then((response) => {
       setEmployeeList(
         employeeList.filter((val) => {
           return val.id != id;
@@ -151,8 +153,8 @@ function App() {
                   setNewWage(event.target.value);
                 }}
               />
-              <button onClick={updateEmployeeWage}>Update</button>
-              <button onClick={deleteEmployee}>Delete</button>
+              <button onClick={() => updateEmployeeWage(selectedEmployee.id)}>Update</button>
+              <button onClick={() => deleteEmployee(selectedEmployee.id)}>Delete</button>
             </div>
           </div>
         )}
