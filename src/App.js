@@ -14,41 +14,26 @@ function App() {
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; //http://localhost:3001/
+  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // http://localhost:3001/
 
-  // 添加員工函數
   const addEmployee = () => {
-    const employeeData = {
-      name: name,
-      age: age,
-      country: country,
-      position: position,
-      wage: wage,
-    };
+    const employeeData = { name, age, country, position, wage };
 
-    // 將資料儲存到本地儲存
-    let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || [];
-    pendingRequests.push(employeeData);
-    localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+    let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
+    pendingCreates.push(employeeData);
+    localStorage.setItem('pendingCreates', JSON.stringify(pendingCreates));
 
-    // 嘗試發送請求到伺服器
     Axios.post(`${baseURL}/create`, employeeData)
       .then(() => {
-        setEmployeeList([
-          ...employeeList,
-          employeeData,
-        ]);
-        // 清除本地儲存中的已成功發送的資料
-        pendingRequests = pendingRequests.filter(emp => emp !== employeeData);
-        localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+        setEmployeeList([...employeeList, employeeData]);
+        pendingCreates = pendingCreates.filter(emp => emp !== employeeData);
+        localStorage.setItem('pendingCreates', JSON.stringify(pendingCreates));
       })
       .catch(() => {
-        // 若請求失敗，則保持資料在本地儲存中
         console.log('Failed to add employee. Will retry later.');
       });
   };
 
-  // 獲取員工函數
   const getEmployees = () => {
     Axios.get(`${baseURL}/employees`).then((response) => {
       console.log(response.data);
@@ -56,81 +41,56 @@ function App() {
     });
   };
 
-  // 更新員工薪資函數
   const updateEmployeeWage = (id) => {
-    const updatedEmployeeData = { wage: newWage, id: id };
+    const updatedEmployeeData = { wage: newWage, id };
 
-    // 將更新請求儲存到本地儲存
-    let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || [];
-    pendingRequests.push(updatedEmployeeData);
-    localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
+    let pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates')) || [];
+    pendingUpdates.push(updatedEmployeeData);
+    localStorage.setItem('pendingUpdates', JSON.stringify(pendingUpdates));
 
-    // 嘗試發送更新請求到伺服器
-    Axios.put(`${baseURL}/update`, updatedEmployeeData).then(
-      (response) => {
-        setEmployeeList(
-          employeeList.map((val) => {
-            return val.id === id
-              ? {
-                  id: val.id,
-                  name: val.name,
-                  country: val.country,
-                  age: val.age,
-                  position: val.position,
-                  wage: newWage,
-                }
-              : val;
-          })
-        );
-        // 清除本地儲存中的已成功發送的資料
-        pendingRequests = pendingRequests.filter(emp => emp !== updatedEmployeeData);
-        localStorage.setItem('pendingRequests', JSON.stringify(pendingRequests));
-      }
-    ).catch(() => {
-      // 若請求失敗，則保持資料在本地儲存中
-      console.log('Failed to update employee wage. Will retry later.');
-    });
+    Axios.put(`${baseURL}/update`, updatedEmployeeData)
+      .then(() => {
+        setEmployeeList(employeeList.map(val => val.id === id ? { ...val, wage: newWage } : val));
+        pendingUpdates = pendingUpdates.filter(emp => emp !== updatedEmployeeData);
+        localStorage.setItem('pendingUpdates', JSON.stringify(pendingUpdates));
+      })
+      .catch(() => {
+        console.log('Failed to update employee wage. Will retry later.');
+      });
   };
 
-  // 刪除員工函數
   const deleteEmployee = (id) => {
-    Axios.delete(`${baseURL}/delete/${id}`).then((response) => {
-      setEmployeeList(
-        employeeList.filter((val) => {
-          return val.id !== id;
-        })
-      );
+    Axios.delete(`${baseURL}/delete/${id}`).then(() => {
+      setEmployeeList(employeeList.filter(val => val.id !== id));
     });
   };
 
-  // 同步待處理的請求
-  const syncPendingRequests = () => {
-    let pendingRequests = JSON.parse(localStorage.getItem('pendingRequests')) || [];
+  const syncPendingRequests = async () => {
+    let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
+    let pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates')) || [];
     
-    pendingRequests.forEach(employeeData => {
-      if (employeeData.wage) {
-        Axios.put(`${baseURL}/update`, employeeData)
-          .then(() => {
-            let updatedPendingRequests = pendingRequests.filter(emp => emp !== employeeData);
-            localStorage.setItem('pendingRequests', JSON.stringify(updatedPendingRequests));
-          })
-          .catch(() => {
-            console.log('Retrying failed sync.');
-          });
-      } else {
-        Axios.post(`${baseURL}/create`, employeeData)
-          .then(() => {
-            let updatedPendingRequests = pendingRequests.filter(emp => emp !== employeeData);
-            localStorage.setItem('pendingRequests', JSON.stringify(updatedPendingRequests));
-          })
-          .catch(() => {
-            console.log('Retrying failed sync.');
-          });
+    const maxRetries = 3;
+
+    const syncData = async (data, endpoint, type) => {
+      for (const item of data) {
+        try {
+          if (type === 'create') {
+            await Axios.post(`${baseURL}/create`, item);
+          } else {
+            await Axios.put(`${baseURL}/update`, item);
+          }
+          data = data.filter(emp => emp !== item);
+        } catch (error) {
+          console.log(`Failed to sync ${type} request. Will retry later.`);
+        }
       }
-    });
+      localStorage.setItem(`pending${type === 'create' ? 'Creates' : 'Updates'}`, JSON.stringify(data));
+    };
+
+    await syncData(pendingCreates, 'create', 'create');
+    await syncData(pendingUpdates, 'update', 'update');
   };
 
-  // 在應用程式啟動時同步資料
   useEffect(() => {
     syncPendingRequests();
   }, []);
@@ -139,62 +99,29 @@ function App() {
     <div className="App">
       <div className="information">
         <label>Name:</label>
-        <input
-          type="text"
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-        />
+        <input type="text" onChange={(event) => setName(event.target.value)} />
         <label>Age:</label>
-        <input
-          type="number"
-          onChange={(event) => {
-            setAge(event.target.value);
-          }}
-        />
+        <input type="number" onChange={(event) => setAge(event.target.value)} />
         <label>Country:</label>
-        <input
-          type="text"
-          onChange={(event) => {
-            setCountry(event.target.value);
-          }}
-        />
+        <input type="text" onChange={(event) => setCountry(event.target.value)} />
         <label>Position:</label>
-        <input
-          type="text"
-          onChange={(event) => {
-            setPosition(event.target.value);
-          }}
-        />
+        <input type="text" onChange={(event) => setPosition(event.target.value)} />
         <label>Wage (year):</label>
-        <input
-          type="number"
-          onChange={(event) => {
-            setWage(event.target.value);
-          }}
-        />
+        <input type="number" onChange={(event) => setWage(event.target.value)} />
         <button onClick={addEmployee}>Add Employee</button>
       </div>
       <div className="employees">
         <button onClick={getEmployees}>Show Employees</button>
-
-        <select
-          onChange={(event) => {
-            const employee = employeeList.find((emp) => emp.id == event.target.value);
-            setSelectedEmployee(employee);
-            setNewWage(employee?.wage || 0); // Set the initial value for wage
-          }}
-        >
+        <select onChange={(event) => {
+          const employee = employeeList.find((emp) => emp.id == event.target.value);
+          setSelectedEmployee(employee);
+          setNewWage(employee?.wage || 0);
+        }}>
           <option value="">Select an Employee</option>
-          {employeeList.map((val) => {
-            return (
-              <option key={val.id} value={val.id}>
-                {val.name} - {val.position}
-              </option>
-            );
-          })}
+          {employeeList.map((val) => (
+            <option key={val.id} value={val.id}>{val.name} - {val.position}</option>
+          ))}
         </select>
-
         {selectedEmployee && (
           <div className="employee">
             <div>
@@ -205,14 +132,7 @@ function App() {
               <h3>Wage: {selectedEmployee.wage}</h3>
             </div>
             <div>
-              <input
-                type="text"
-                placeholder="2000..."
-                value={newWage}
-                onChange={(event) => {
-                  setNewWage(event.target.value);
-                }}
-              />
+              <input type="number" value={newWage} onChange={(event) => setNewWage(event.target.value)} />
               <button onClick={() => updateEmployeeWage(selectedEmployee.id)}>Update</button>
               <button onClick={() => deleteEmployee(selectedEmployee.id)}>Delete</button>
             </div>
