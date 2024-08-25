@@ -14,7 +14,7 @@ function App() {
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com";
+  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; //http://localhost:3001/
 
   // 添加員工函數
   const addEmployee = () => {
@@ -180,7 +180,7 @@ function App() {
 
         <select
           onChange={(event) => {
-            const employee = employeeList.find((emp) => emp.id === event.target.value);
+            const employee = employeeList.find((emp) => emp.id == event.target.value);
             setSelectedEmployee(employee);
             setNewWage(employee?.wage || 0); // Set the initial value for wage
           }}
