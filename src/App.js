@@ -8,6 +8,7 @@ function App() {
   const [country, setCountry] = useState("");
   const [position, setPosition] = useState("");
   const [wage, setWage] = useState(0);
+  const [photo, setPhoto] = useState(null); // 新增照片狀態
 
   const [newWage, setNewWage] = useState(0);
 
@@ -17,13 +18,22 @@ function App() {
   const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // http://localhost:3001/
 
   const addEmployee = () => {
-    const employeeData = { name, age, country, position, wage };
+    const employeeData = { name, age, country, position, wage, photo }; // 包括照片資料
     console.log("add");
     let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
     pendingCreates.push(employeeData);
     localStorage.setItem('pendingCreates', JSON.stringify(pendingCreates));
 
-    Axios.post(`${baseURL}/create`, employeeData)
+    const formData = new FormData();
+    for (const key in employeeData) {
+      formData.append(key, employeeData[key]);
+    }
+
+    Axios.post(`${baseURL}/create`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
       .then(() => {
         setEmployeeList([...employeeList, employeeData]);
         pendingCreates = pendingCreates.filter(emp => emp !== employeeData);
@@ -70,15 +80,26 @@ function App() {
     let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
     let pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates')) || [];
     
-    const maxRetries = 3;
-
     const syncData = async (data, endpoint, type) => {
       for (const item of data) {
         try {
+          const formData = new FormData();
+          for (const key in item) {
+            formData.append(key, item[key]);
+          }
+
           if (type === 'create') {
-            await Axios.post(`${baseURL}/create`, item);
+            await Axios.post(`${baseURL}/${endpoint}`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
           } else {
-            await Axios.put(`${baseURL}/update`, item);
+            await Axios.put(`${baseURL}/${endpoint}`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
           }
           data = data.filter(emp => emp !== item);
         } catch (error) {
@@ -109,6 +130,11 @@ function App() {
         <input type="text" onChange={(event) => setPosition(event.target.value)} />
         <label>Wage (year):</label>
         <input type="number" onChange={(event) => setWage(event.target.value)} />
+        <label>Photo:</label> {/* 新增照片欄位 */}
+        <input type="file" onChange={(event) => {
+          const file = event.target.files[0];
+          setPhoto(file); // 設定照片狀態
+        }} />
         <button onClick={addEmployee}>Add Employee</button>
       </div>
       <div className="employees">
@@ -131,6 +157,9 @@ function App() {
               <h3>Country: {selectedEmployee.country}</h3>
               <h3>Position: {selectedEmployee.position}</h3>
               <h3>Wage: {selectedEmployee.wage}</h3>
+              {selectedEmployee.photo && ( // 顯示照片
+                <img src={selectedEmployee.photo} alt={`${selectedEmployee.name}'s photo`} />
+              )}
             </div>
             <div>
               <input type="number" value={newWage} onChange={(event) => setNewWage(event.target.value)} />
