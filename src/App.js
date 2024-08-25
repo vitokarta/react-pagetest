@@ -18,7 +18,7 @@ function App() {
 
   const addEmployee = () => {
     const employeeData = { name, age, country, position, wage };
-
+    console.log("add");
     let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
     pendingCreates.push(employeeData);
     localStorage.setItem('pendingCreates', JSON.stringify(pendingCreates));
@@ -66,6 +66,7 @@ function App() {
   };
 
   const syncPendingRequests = async () => {
+    console.log("sync run");
     let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
     let pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates')) || [];
     
