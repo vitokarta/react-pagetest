@@ -20,7 +20,8 @@ function App() {
   try {
     const response = await Axios.post("https://api.imgur.com/3/image", formData, {
       headers: {
-        Authorization: "Client-ID 49729cd47a6b1a7",
+        //Authorization: "Client-ID 49729cd47a6b1a7",
+        Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374",
         "Content-Type": "multipart/form-data",
       },
     });
