@@ -8,17 +8,17 @@ function App() {
   const [country, setCountry] = useState("");
   const [position, setPosition] = useState("");
   const [wage, setWage] = useState(0);
-  const [photo, setPhoto] = useState(null); // 新增照片狀態
+  const [photo, setPhoto] = useState(null);
 
   const [newWage, setNewWage] = useState(0);
 
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // http://localhost:3001/
+  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com";
 
   const addEmployee = () => {
-    const employeeData = { name, age, country, position, wage, photo }; // 包括照片資料
+    const employeeData = { name, age, country, position, wage, photo };
     console.log("add");
     let pendingCreates = JSON.parse(localStorage.getItem('pendingCreates')) || [];
     pendingCreates.push(employeeData);
@@ -130,10 +130,10 @@ function App() {
         <input type="text" onChange={(event) => setPosition(event.target.value)} />
         <label>Wage (year):</label>
         <input type="number" onChange={(event) => setWage(event.target.value)} />
-        <label>Photo:</label> {/* 新增照片欄位 */}
+        <label>Photo:</label>
         <input type="file" onChange={(event) => {
           const file = event.target.files[0];
-          setPhoto(file); // 設定照片狀態
+          setPhoto(file);
         }} />
         <button onClick={addEmployee}>Add Employee</button>
       </div>
@@ -157,8 +157,12 @@ function App() {
               <h3>Country: {selectedEmployee.country}</h3>
               <h3>Position: {selectedEmployee.position}</h3>
               <h3>Wage: {selectedEmployee.wage}</h3>
-              {selectedEmployee.photo && ( // 顯示照片
-                <img src={selectedEmployee.photo} alt={`${selectedEmployee.name}'s photo`} />
+              {selectedEmployee.photo && (
+                <img
+                  src={`${baseURL}/uploads/${selectedEmployee.photo}`}
+                  alt={`${selectedEmployee.name}'s photo`}
+                  style={{ width: '150px', height: '150px' }}
+                />
               )}
             </div>
             <div>
