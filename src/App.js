@@ -2,20 +2,68 @@ import "./App.css";
 import { useState, useEffect } from "react";
 import Axios from "axios";
 
-// 将图片文件转换为 base64 字符串
-const fileToBase64 = (file) => {
+// 打开或创建 IndexedDB 数据库
+const openDB = () => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const request = indexedDB.open('imageDB', 1);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
+    };
+
+    request.onsuccess = (event) => {
+      resolve(event.target.result);
+    };
+
+    request.onerror = (event) => {
+      reject(event.target.error);
+    };
   });
 };
 
-const base64ToFile = async (base64, filename) => {
-  const response = await fetch(base64);
-  const blob = await response.blob();
-  return new File([blob], filename, { type: blob.type });
+// 将图像文件存储在 IndexedDB 中
+const storeImage = async (imageId, imageFile) => {
+  const db = await openDB();
+  const transaction = db.transaction('images', 'readwrite');
+  const store = transaction.objectStore('images');
+  store.put({ id: imageId, file: imageFile });
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = (event) => reject(event.target.error);
+  });
+};
+
+// 从 IndexedDB 中获取图像文件
+const getImage = async (imageId) => {
+  const db = await openDB();
+  const transaction = db.transaction('images', 'readonly');
+  const store = transaction.objectStore('images');
+  const request = store.get(imageId);
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = (event) => reject(event.target.error);
+  });
+};
+
+// 上传图片到 Imgur 并返回图片的 URL
+const uploadImage = async (imageFile) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+
+  try {
+    const response = await Axios.post("https://api.imgur.com/3/image", formData, {
+      headers: {
+        Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374", // 使用私人Access Token上传
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    console.log("Image URL:", response.data.data.link);
+    return response.data.data.link;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return null; // 返回 null 表示上传失败
+  }
 };
 
 function App() {
@@ -31,42 +79,23 @@ function App() {
 
   const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // 后端 API 的基础 URL
 
-  // 上传图片到 Imgur 并返回图片的 URL
-  const uploadImage = async (base64Image) => {
-    const formData = new FormData();
-    formData.append("image", base64Image);
-
-    try {
-      const response = await Axios.post("https://api.imgur.com/3/image", formData, {
-        headers: {
-          Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374", // 使用私人Access Token上传
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      console.log("Image URL:", response.data.data.link);
-      return response.data.data.link;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      return null; // 返回null表示上传失败
-    }
-  };
-
   // 添加员工信息并将照片上传到 Imgur（照片可选）
   const addEmployee = async () => {
     let imageUrl = "";
-    let imageBase64 = null;
+    let imageId = null;
 
     if (photo) {
-      imageBase64 = await fileToBase64(photo);
+      imageId = Date.now(); // 使用时间戳或其他唯一 ID
+      await storeImage(imageId, photo); // 将图片文件存储在 IndexedDB
       imageUrl = await uploadImage(photo);
       if (!imageUrl) {
         console.log("Image upload failed, will store locally for later retry.");
       } else {
-        imageBase64 = null; // 上传成功后不再需要存储原始文件
+        imageId = null; // 上传成功后清除本地存储的图片 ID
       }
     }
 
-    const employeeData = { name, age, country, position, wage, photo: imageUrl, photoFile: imageBase64 };
+    const employeeData = { name, age, country, position, wage, photo: imageUrl, photoFileId: imageId };
     console.log(employeeData);
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     pendingCreates.push(employeeData);
@@ -139,13 +168,12 @@ function App() {
         try {
           if (type === "create") {
             // 如果没有照片但有本地存储的照片文件，则尝试上传
-            if (!item.photo && item.photoFile) {
-              // 转换 base64 字符串回文件对象
-              const imageFile = await base64ToFile(item.photoFile, "photo.jpg");
-              const imageUrl = await uploadImage(imageFile);
+            if (!item.photo && item.photoFileId) {
+              const image = await getImage(item.photoFileId);
+              const imageUrl = await uploadImage(image.file);
               if (imageUrl) {
                 item.photo = imageUrl;
-                item.photoFile = null; // 上传成功后删除本地存储的照片文件
+                item.photoFileId = null; // 上传成功后删除本地存储的照片 ID
               }
             }
             await Axios.post(`${baseURL}/${endpoint}`, item);
