@@ -186,8 +186,8 @@ function App() {
               const imageUrl = await uploadImage(image.file);
               if (imageUrl) {
                 item.photo = imageUrl;
-                item.photoFileId = null; // 上传成功后删除本地存储的照片 ID
-                await deleteImage(image.photoFileId); // 删除 IndexedDB 中的图片
+                await deleteImage(item.photoFileId); // 删除 IndexedDB 中的图片
+              item.photoFileId = null; // 删除本地存储的照片 ID
               }
             }
             await Axios.post(`${baseURL}/${endpoint}`, item);
@@ -244,7 +244,7 @@ function App() {
               <h3>Position: {selectedEmployee.position}</h3>
               <h3>Wage: {selectedEmployee.wage}</h3>
               {selectedEmployee.photo && (
-                <img src={selectedEmployee.photo} alt={`${selectedEmployee.name}'s photo`} style={{ width: "100px", height: "100px" }} />
+                <img src={selectedEmployee.photo} alt={`${selectedEmployee.name}'s photo`} style={{ width: "800px", height: "600px" }} />
               )}
             </div>
             <div>
