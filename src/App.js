@@ -2,6 +2,16 @@ import "./App.css";
 import { useState, useEffect } from "react";
 import Axios from "axios";
 
+// 将图片文件转换为 base64 字符串
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 function App() {
   const [name, setName] = useState("");
   const [age, setAge] = useState(0);
@@ -16,9 +26,9 @@ function App() {
   const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // 后端 API 的基础 URL
 
   // 上传图片到 Imgur 并返回图片的 URL
-  const uploadImage = async (file) => {
+  const uploadImage = async (base64Image) => {
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", base64Image);
 
     try {
       const response = await Axios.post("https://api.imgur.com/3/image", formData, {
@@ -38,18 +48,19 @@ function App() {
   // 添加员工信息并将照片上传到 Imgur（照片可选）
   const addEmployee = async () => {
     let imageUrl = "";
-    let imageFile = photo;
-    console.log(imageFile);
+    let imageBase64 = null;
+
     if (photo) {
-      imageUrl = await uploadImage(photo);
+      imageBase64 = await fileToBase64(photo);
+      imageUrl = await uploadImage(imageBase64);
       if (!imageUrl) {
         console.log("Image upload failed, will store locally for later retry.");
       } else {
-        imageFile = null; // 上传成功后不再需要存储原始文件
+        imageBase64 = null; // 上传成功后不再需要存储原始文件
       }
     }
 
-    const employeeData = { name, age, country, position, wage, photo: imageUrl, photoFile: imageFile };
+    const employeeData = { name, age, country, position, wage, photo: imageUrl, photoFile: imageBase64 };
     console.log(employeeData);
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     pendingCreates.push(employeeData);
@@ -116,16 +127,19 @@ function App() {
     console.log("sync run");
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     let pendingUpdates = JSON.parse(localStorage.getItem("pendingUpdates")) || [];
-
+  
     const syncData = async (data, endpoint, type) => {
       for (const item of data) {
         try {
           if (type === "create") {
             // 如果没有照片但有本地存储的照片文件，则尝试上传
             if (!item.photo && item.photoFile) {
-              item.photo = await uploadImage(item.photoFile);
-              if (item.photo) {
-                delete item.photoFile; // 上传成功后删除本地存储的照片文件
+              // 转换 base64 字符串回文件对象
+              const imageFile = await base64ToFile(item.photoFile, "photo.jpg");
+              const imageUrl = await uploadImage(imageFile);
+              if (imageUrl) {
+                item.photo = imageUrl;
+                item.photoFile = null; // 上传成功后删除本地存储的照片文件
               }
             }
             await Axios.post(`${baseURL}/${endpoint}`, item);
@@ -139,10 +153,11 @@ function App() {
       }
       localStorage.setItem(`pending${type === "create" ? "Creates" : "Updates"}`, JSON.stringify(data));
     };
-
+  
     await syncData(pendingCreates, "create", "create");
     await syncData(pendingUpdates, "update", "update");
   };
+  
 
   return (
     <div className="App">
