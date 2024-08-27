@@ -2,20 +2,30 @@ import "./App.css";
 import { useState, useEffect } from "react";
 import Axios from "axios";
 
+// 將文件轉換為 Base64 格式
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 function App() {
   const [name, setName] = useState("");
   const [age, setAge] = useState(0);
   const [country, setCountry] = useState("");
   const [position, setPosition] = useState("");
   const [wage, setWage] = useState(0);
-  const [photo, setPhoto] = useState(null); // 照片文件状态
+  const [photo, setPhoto] = useState(null); // 照片文件狀態
   const [newWage, setNewWage] = useState(0);
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // 后端 API 的基础 URL
+  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // 後端 API 的基礎 URL
 
-  // 上传图片到 Imgur 并返回图片的 URL
+  // 上傳圖片到 Imgur 並返回圖片的 URL
   const uploadImage = async (file) => {
     const formData = new FormData();
     formData.append("image", file);
@@ -23,7 +33,7 @@ function App() {
     try {
       const response = await Axios.post("https://api.imgur.com/3/image", formData, {
         headers: {
-          Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374", // 使用私人Access Token上传
+          Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374", // 使用私人 Access Token 上傳
           "Content-Type": "multipart/form-data",
         },
       });
@@ -31,19 +41,26 @@ function App() {
       return response.data.data.link;
     } catch (error) {
       console.error("Error uploading image:", error);
-      return "";
+
+      // 將未成功上傳的圖片存儲在本地
+      const base64Image = await fileToBase64(file);
+      const pendingImages = JSON.parse(localStorage.getItem("pendingImages")) || [];
+      pendingImages.push({ fileName: file.name, fileData: base64Image });
+      localStorage.setItem("pendingImages", JSON.stringify(pendingImages));
+
+      return ""; // 返回空字符串表示上傳失敗
     }
   };
 
-  // 添加员工信息并将照片上传到 Imgur（照片可选）
+  // 添加員工信息並將照片上傳到 Imgur（照片可選）
   const addEmployee = async () => {
     let imageUrl = "";
     if (photo) {
-      imageUrl = await uploadImage(photo); // 如果有照片则上传图片并获取 URL
+      imageUrl = await uploadImage(photo); // 如果有照片則上傳圖片並獲取 URL
     }
 
     const employeeData = { name, age, country, position, wage, photo: imageUrl };
-    console.log(employeeData)
+    console.log(employeeData);
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     pendingCreates.push(employeeData);
     localStorage.setItem("pendingCreates", JSON.stringify(pendingCreates));
@@ -104,25 +121,38 @@ function App() {
     syncPendingRequests();
   }, []);
 
-  // 同步本地存储的待处理请求
+  // 同步本地存儲的待處理請求
   const syncPendingRequests = async () => {
     console.log("sync run");
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     let pendingUpdates = JSON.parse(localStorage.getItem("pendingUpdates")) || [];
+    let pendingImages = JSON.parse(localStorage.getItem("pendingImages")) || [];
+
+    // 同步圖片上傳請求
+    for (const image of pendingImages) {
+      try {
+        const blob = await (await fetch(image.fileData)).blob(); // 轉換 Base64 為 Blob
+        const file = new File([blob], image.fileName); // 創建 File 對象
+        const imageUrl = await uploadImage(file); // 重新上傳圖片
+
+        if (imageUrl) {
+          pendingImages = pendingImages.filter((img) => img !== image); // 上傳成功後移除本地暫存
+          pendingCreates = pendingCreates.map((emp) =>
+            emp.photo === "" ? { ...emp, photo: imageUrl } : emp
+          );
+        }
+      } catch (error) {
+        console.log("Failed to re-upload image. Will retry later.");
+      }
+    }
+
+    localStorage.setItem("pendingImages", JSON.stringify(pendingImages));
+    localStorage.setItem("pendingCreates", JSON.stringify(pendingCreates));
 
     const syncData = async (data, endpoint, type) => {
       for (const item of data) {
         try {
-          if (type === "create") {
-            // 如果没有照片但有本地存储的照片文件，则尝试上传
-            if (!item.photo && item.photoFile) {
-              item.photo = await uploadImage(item.photoFile);
-              delete item.photoFile; // 上传成功后删除本地存储的照片文件
-            }
-            await Axios.post(`${baseURL}/${endpoint}`, item);
-          } else {
-            await Axios.put(`${baseURL}/${endpoint}`, item);
-          }
+          await Axios.post(`${baseURL}/${endpoint}`, item);
           data = data.filter((emp) => emp !== item);
         } catch (error) {
           console.log(`Failed to sync ${type} request. Will retry later.`);
@@ -148,7 +178,7 @@ function App() {
         <input type="text" onChange={(event) => setPosition(event.target.value)} />
         <label>Wage (year):</label>
         <input type="number" onChange={(event) => setWage(event.target.value)} />
-        <label>Photo (optional):</label> 
+        <label>Photo (optional):</label>
         <input type="file" onChange={(event) => setPhoto(event.target.files[0])} />
         <button onClick={addEmployee}>Add Employee</button>
       </div>
@@ -177,9 +207,9 @@ function App() {
               )}
             </div>
             <div>
-              <input type="number" value={newWage} onChange={(event) => setNewWage(event.target.value)} />
-              <button onClick={() => updateEmployeeWage(selectedEmployee.id)}>Update</button>
-              <button onClick={() => deleteEmployee(selectedEmployee.id)}>Delete</button>
+              <input type="number" placeholder="New Wage..." onChange={(event) => setNewWage(event.target.value)} />
+              <button onClick={() => updateEmployeeWage(selectedEmployee.id)}>Update Wage</button>
+              <button onClick={() => deleteEmployee(selectedEmployee.id)}>Delete Employee</button>
             </div>
           </div>
         )}
