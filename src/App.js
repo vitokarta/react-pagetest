@@ -46,6 +46,18 @@ const getImage = async (imageId) => {
   });
 };
 
+// 从 IndexedDB 中删除图像文件
+const deleteImage = async (imageId) => {
+  const db = await openDB();
+  const transaction = db.transaction('images', 'readwrite');
+  const store = transaction.objectStore('images');
+  store.delete(imageId);
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = (event) => reject(event.target.error);
+  });
+};
+
 // 上传图片到 Imgur 并返回图片的 URL
 const uploadImage = async (imageFile) => {
   const formData = new FormData();
@@ -91,6 +103,7 @@ function App() {
       if (!imageUrl) {
         console.log("Image upload failed, will store locally for later retry.");
       } else {
+        await deleteImage(imageId); // 上传成功后删除 IndexedDB 中的图片
         imageId = null; // 上传成功后清除本地存储的图片 ID
       }
     }
@@ -174,6 +187,7 @@ function App() {
               if (imageUrl) {
                 item.photo = imageUrl;
                 item.photoFileId = null; // 上传成功后删除本地存储的照片 ID
+                await deleteImage(image.photoFileId); // 删除 IndexedDB 中的图片
               }
             }
             await Axios.post(`${baseURL}/${endpoint}`, item);
@@ -191,7 +205,6 @@ function App() {
     await syncData(pendingCreates, "create", "create");
     await syncData(pendingUpdates, "update", "update");
   };
-  
 
   return (
     <div className="App">
