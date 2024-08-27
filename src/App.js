@@ -39,7 +39,7 @@ function App() {
   const addEmployee = async () => {
     let imageUrl = "";
     let imageFile = photo;
-
+    console.log(imageFile);
     if (photo) {
       imageUrl = await uploadImage(photo);
       if (!imageUrl) {
