@@ -12,6 +12,12 @@ const fileToBase64 = (file) => {
   });
 };
 
+const base64ToFile = async (base64, filename) => {
+  const response = await fetch(base64);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type });
+};
+
 function App() {
   const [name, setName] = useState("");
   const [age, setAge] = useState(0);
