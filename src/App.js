@@ -58,7 +58,7 @@ function App() {
 
     if (photo) {
       imageBase64 = await fileToBase64(photo);
-      imageUrl = await uploadImage(imageBase64);
+      imageUrl = await uploadImage(photo);
       if (!imageUrl) {
         console.log("Image upload failed, will store locally for later retry.");
       } else {
