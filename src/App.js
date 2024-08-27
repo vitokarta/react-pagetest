@@ -43,7 +43,7 @@ function App() {
     }
 
     const employeeData = { name, age, country, position, wage, photo: imageUrl };
-
+    console.log(employeeData)
     let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
     pendingCreates.push(employeeData);
     localStorage.setItem("pendingCreates", JSON.stringify(pendingCreates));
