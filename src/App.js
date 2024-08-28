@@ -126,7 +126,7 @@ function MeterHistoryModal({ meterId, meterType, onClose }) {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await axios.get(`https://servertest1-e5f153f6ef40.herokuapp.com/meter-history/${meterType}/${meterId}`); // Updated URL
+        const response = await axios.get(`https://servertest1-e5f153f6ef40.herokuapp.com/meter-history/${meterType}/${meterId}`);
         setHistory(response.data);
       } catch (error) {
         console.error('Error fetching meter history:', error);
@@ -217,10 +217,10 @@ function App() {
     }
   }, []);
 
-  
+
   const fetchCampuses = async () => {
     try {
-      const response = await axios.get('https://servertest1-e5f153f6ef40.herokuapp.com/campuses'); // Updated URL
+      const response = await axios.get('https://servertest1-e5f153f6ef40.herokuapp.com/campuses');
       console.log('API response:', response);
       console.log('Campuses data:', response.data);
       setCampuses(response.data);
@@ -236,7 +236,7 @@ function App() {
   const fetchMeters = async () => {
     if (!selectedCampus || !selectedMeterType) return;
     try {
-        const response = await axios.get('https://servertest1-e5f153f6ef40.herokuapp.com/meters'); // Updated URL
+        const response = await axios.get('https://servertest1-e5f153f6ef40.herokuapp.com/meters');
         console.log('Fetched meters:', response.data);
         const filteredMeters = response.data.filter(meter => 
             meter.campus_id === parseInt(selectedCampus) && 
@@ -254,128 +254,178 @@ function App() {
 
   const handleLogin = async (username, password) => {
   try {
-    const response = await axios.post('https://servertest1-e5f153f6ef40.herokuapp.com/login', { username, password }); // Updated URL
+    const response = await axios.post('https://servertest1-e5f153f6ef40.herokuapp.com/login', { username, password });
     localStorage.setItem('token', response.data.token);
-    setUser({ username });
-    fetchCampuses();
+    setUser(response.data.user);
+    fetchCampuses(); // 登入成功後立即獲取校區數據
   } catch (error) {
-    console.error('Login failed:', error);
+    console.error('Login error:', error);
+    alert('登錄失敗：' + (error.response?.data || error.message));
+  }
+};
+const handleReadingSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedMeter || !reading) {
+    alert('請選擇電表並輸入度數');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('meter_id', selectedMeter.meter_number);
+  formData.append('meter_type', selectedMeterType);
+  formData.append('reading_value', reading);
+  if (selectedMeterType === 'digital') {
+    formData.append('brand', brand);
+    formData.append('display_units', Object.keys(displayUnits).filter(unit => displayUnits[unit]).join(','));
+  } else {
+    formData.append('ct_value', ctValue);
+    formData.append('wiring_method', wiringMethod);
+  }
+  if (photo) {
+    formData.append('photo', photo);
+  }
+
+  try {
+    const response = await axios.post('https://servertest1-e5f153f6ef40.herokuapp.com/update-meter-reading', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    console.log('Server response:', response.data);
+    if (response.data.photo_url) {
+      console.log('Uploaded photo URL:', response.data.photo_url);
+    }
+    alert('讀數更新成功');
+    setReading('');
+    setPhoto(null);
+    fetchMeters(); // 重新獲取電表列表以更新顯示
+  } catch (error) {
+    console.error('Error updating reading:', error);
+    alert('更新失敗：' + (error.response?.data?.details || error.message));
   }
 };
 
+
   const handleAddMeter = async (meterType, meterData) => {
     try {
-      await axios.post(`https://servertest1-e5f153f6ef40.herokuapp.com/meters`, { ...meterData, meter_type: meterType }); // Updated URL
+      const endpoint = meterType === 'digital' ? 'https://servertest1-e5f153f6ef40.herokuapp.com/digital-meters' : 'https://servertest1-e5f153f6ef40.herokuapp.com/mechanical-meters';
+      await axios.post(endpoint, meterData);
+      alert('電表添加成功');
       setShowAddMeterForm(false);
-      fetchMeters(); // Refresh the meter list after adding
+      fetchMeters();
     } catch (error) {
       console.error('Error adding meter:', error);
+      alert('添加電表失敗：' + (error.response?.data || error.message));
     }
   };
 
-  const handleAddReading = async () => {
-    if (!selectedMeter) return;
-
-    const formData = new FormData();
-    formData.append('reading_value', reading);
-    formData.append('meter_id', selectedMeter.id);
-    formData.append('photo', photo);
-
-    try {
-      await axios.post(`https://servertest1-e5f153f6ef40.herokuapp.com/meter-readings`, formData, { // Updated URL
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      alert('Reading added successfully!');
-      setReading('');
-      setPhoto(null);
-    } catch (error) {
-      console.error('Error adding reading:', error);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
+  const handleDisplayUnitChange = (unit) => {
+    setDisplayUnits(prev => ({ ...prev, [unit]: !prev[unit] }));
   };
 
   return (
-    <div className="App">
+    <div>
       {!user ? (
         <LoginForm onLogin={handleLogin} />
       ) : (
-        <>
-          <h1>歡迎，{user.username}</h1>
-          <button onClick={handleLogout}>登出</button>
-          <div>
-            <label>
-              選擇校區：
-              <select value={selectedCampus} onChange={(e) => setSelectedCampus(e.target.value)}>
-                <option value="">選擇校區</option>
-                {campuses.map(campus => (
-                  <option key={campus.id} value={campus.id}>{campus.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label>
-              選擇電表類型：
-              <select value={selectedMeterType} onChange={(e) => setSelectedMeterType(e.target.value)}>
-                <option value="">選擇電表類型</option>
-                <option value="digital">數位電表</option>
-                <option value="mechanical">機械電表</option>
-              </select>
-            </label>
-          </div>
-          <div>
-            <label>
-              選擇電表：
-              <select value={selectedMeter?.id || ''} onChange={(e) => {
-                const selectedMeterId = e.target.value;
-                const meter = meters.find(m => m.id === parseInt(selectedMeterId));
-                setSelectedMeter(meter);
-              }}>
-                <option value="">選擇電表</option>
-                {meters.map(meter => (
-                  <option key={meter.id} value={meter.id}>{meter.meter_number}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label>
-              讀數值：
-              <input type="number" value={reading} onChange={(e) => setReading(e.target.value)} />
-            </label>
-          </div>
-          <div>
-            <label>
-              照片：
-              <input type="file" onChange={(e) => setPhoto(e.target.files[0])} />
-            </label>
-          </div>
-          <button onClick={handleAddReading}>添加讀數</button>
-          <button onClick={() => setShowHistory(true)}>查看歷史記錄</button>
-          {selectedMeter && showHistory && (
-            <MeterHistoryModal
-              meterId={selectedMeter.id}
+        <div>
+          <h1>電表管理系統</h1>
+          <select onChange={e => setSelectedCampus(e.target.value)} value={selectedCampus}>
+            <option value="">選擇校區</option>
+            {campuses.map(campus => (
+              <option key={campus.id} value={campus.id}>{campus.name}</option>
+            ))}
+          </select>
+          <select onChange={e => setSelectedMeterType(e.target.value)} value={selectedMeterType}>
+            <option value="">選擇電表類型</option>
+            <option value="digital">數位式</option>
+            <option value="mechanical">機械式</option>
+          </select>
+          {selectedCampus && selectedMeterType && (
+            <select onChange={e => setSelectedMeter(meters.find(m => m.id === parseInt(e.target.value)))}>
+              <option value="">選擇電表</option>
+              {meters.map(meter => (
+                <option key={meter.id} value={meter.id}>{meter.meter_number}</option>
+              ))}
+            </select>
+          )}
+          {selectedMeter && (
+            <form onSubmit={handleReadingSubmit}>
+              <h2>電表號: {selectedMeter.meter_number}</h2>
+              <div>
+                <label>位置: {selectedMeter.location}</label>
+              </div>
+              {selectedMeterType === 'digital' ? (
+                <>
+                  <div>
+                    <label>廠牌: </label>
+                    <select value={brand} onChange={e => setBrand(e.target.value)}>
+                      <option value="">選擇廠牌</option>
+                      <option value="1">施耐德</option>
+                      <option value="2">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>顯示單位: </label>
+                    <label><input type="checkbox" checked={displayUnits.Wh} onChange={() => handleDisplayUnitChange('Wh')} /> Wh</label>
+                    <label><input type="checkbox" checked={displayUnits.VAh} onChange={() => handleDisplayUnitChange('VAh')} /> VAh</label>
+                    <label><input type="checkbox" checked={displayUnits.VARh} onChange={() => handleDisplayUnitChange('VARh')} /> VARh</label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label>CT值: </label>
+                    <select value={ctValue} onChange={e => setCtValue(e.target.value)}>
+                      <option value="">選擇 CT 值</option>
+                      <option value="1">有裝電比值</option>
+                      <option value="2">沒有</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>電壓接線方式: </label>
+                    <input 
+                      type="text" 
+                      value={wiringMethod} 
+                      onChange={e => setWiringMethod(e.target.value)} 
+                      placeholder="電壓接線方式"
+                    />
+                  </div>
+                </>
+              )}
+              <div>
+                <label>新讀數: </label>
+                <input 
+                  type="number" 
+                  value={reading} 
+                  onChange={e => setReading(e.target.value)} 
+                  placeholder="新電表度數" 
+                  required
+                />
+              </div>
+              <div>
+                <label>上傳照片: </label>
+                <input 
+                  type="file" 
+                  onChange={e => setPhoto(e.target.files[0])} 
+                  accept="image/*"
+                />
+              </div>
+              <button type="button" onClick={() => setShowHistory(true)}>查看歷史記錄</button>
+              <button type="submit">更新讀數</button>
+            </form>
+          )}
+          {showHistory && selectedMeter && (
+            <MeterHistoryModal 
+              meterId={selectedMeter.meter_number}
               meterType={selectedMeterType}
               onClose={() => setShowHistory(false)}
             />
           )}
-          <button onClick={() => setShowAddMeterForm(!showAddMeterForm)}>
-            {showAddMeterForm ? '取消添加電表' : '添加新電表'}
-          </button>
-          {showAddMeterForm && (
-            <AddMeterForm
-              meterType={selectedMeterType}
-              campuses={campuses}
-              onAddMeter={handleAddMeter}
-            />
+          {user.role === 'admin' && (
+              <button onClick={() => {/* 顯示用戶管理界面 */}}>管理用戶</button>
           )}
-        </>
+        </div>
       )}
     </div>
   );
