@@ -1,262 +1,435 @@
-import "./App.css";
-import { useState, useEffect } from "react";
-import Axios from "axios";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-// 打开或创建 IndexedDB 数据库
-const openDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('imageDB', 1);
+function LoginForm({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
-    };
-
-    request.onsuccess = (event) => {
-      resolve(event.target.result);
-    };
-
-    request.onerror = (event) => {
-      reject(event.target.error);
-    };
-  });
-};
-
-// 将图像文件存储在 IndexedDB 中
-const storeImage = async (imageId, imageFile) => {
-  const db = await openDB();
-  const transaction = db.transaction('images', 'readwrite');
-  const store = transaction.objectStore('images');
-  store.put({ id: imageId, file: imageFile });
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = (event) => reject(event.target.error);
-  });
-};
-
-// 从 IndexedDB 中获取图像文件
-const getImage = async (imageId) => {
-  const db = await openDB();
-  const transaction = db.transaction('images', 'readonly');
-  const store = transaction.objectStore('images');
-  const request = store.get(imageId);
-  return new Promise((resolve, reject) => {
-    request.onsuccess = (event) => resolve(event.target.result);
-    request.onerror = (event) => reject(event.target.error);
-  });
-};
-
-// 从 IndexedDB 中删除图像文件
-const deleteImage = async (imageId) => {
-  const db = await openDB();
-  const transaction = db.transaction('images', 'readwrite');
-  const store = transaction.objectStore('images');
-  store.delete(imageId);
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = (event) => reject(event.target.error);
-  });
-};
-
-// 上传图片到 Imgur 并返回图片的 URL
-const uploadImage = async (imageFile) => {
-  const formData = new FormData();
-  formData.append("image", imageFile);
-
-  try {
-    const response = await Axios.post("https://api.imgur.com/3/image", formData, {
-      headers: {
-        Authorization: "Bearer 85f1906ae12283d2daa9e5d96472ae4274ae7374", // 使用私人Access Token上传
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    console.log("Image URL:", response.data.data.link);
-    return response.data.data.link;
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    return null; // 返回 null 表示上传失败
-  }
-};
-
-function App() {
-  const [name, setName] = useState("");
-  const [age, setAge] = useState(0);
-  const [country, setCountry] = useState("");
-  const [position, setPosition] = useState("");
-  const [wage, setWage] = useState(0);
-  const [photo, setPhoto] = useState(null); // 照片文件状态
-  const [newWage, setNewWage] = useState(0);
-  const [employeeList, setEmployeeList] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-
-  const baseURL = "https://servertest1-e5f153f6ef40.herokuapp.com"; // 后端 API 的基础 URL
-
-  // 添加员工信息并将照片上传到 Imgur（照片可选）
-  const addEmployee = async () => {
-    let imageUrl = "";
-    let imageId = null;
-
-    if (photo) {
-      imageId = Date.now(); // 使用时间戳或其他唯一 ID
-      await storeImage(imageId, photo); // 将图片文件存储在 IndexedDB
-      imageUrl = await uploadImage(photo);
-      if (!imageUrl) {
-        console.log("Image upload failed, will store locally for later retry.");
-      } else {
-        await deleteImage(imageId); // 上传成功后删除 IndexedDB 中的图片
-        imageId = null; // 上传成功后清除本地存储的图片 ID
-      }
-    }
-
-    const employeeData = { name, age, country, position, wage, photo: imageUrl, photoFileId: imageId };
-    console.log(employeeData);
-    let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
-    pendingCreates.push(employeeData);
-    localStorage.setItem("pendingCreates", JSON.stringify(pendingCreates));
-
-    Axios.post(`${baseURL}/create`, employeeData)
-      .then(() => {
-        setEmployeeList([...employeeList, employeeData]);
-        pendingCreates = pendingCreates.filter((emp) => emp !== employeeData);
-        localStorage.setItem("pendingCreates", JSON.stringify(pendingCreates));
-      })
-      .catch(() => {
-        console.log("Failed to add employee. Will retry later.");
-      });
-  };
-
-  const getEmployees = () => {
-    Axios.get(`${baseURL}/employees`).then((response) => {
-      setEmployeeList(response.data);
-    });
-  };
-
-  const updateEmployeeWage = (id) => {
-    const updatedEmployeeData = { wage: newWage, id };
-
-    let pendingUpdates = JSON.parse(localStorage.getItem("pendingUpdates")) || [];
-    pendingUpdates.push(updatedEmployeeData);
-    localStorage.setItem("pendingUpdates", JSON.stringify(pendingUpdates));
-
-    Axios.put(`${baseURL}/update`, updatedEmployeeData)
-      .then(() => {
-        setEmployeeList(
-          employeeList.map((val) =>
-            val.id === id ? { ...val, wage: newWage } : val
-          )
-        );
-        pendingUpdates = pendingUpdates.filter(
-          (emp) => emp !== updatedEmployeeData
-        );
-        localStorage.setItem(
-          "pendingUpdates",
-          JSON.stringify(pendingUpdates)
-        );
-      })
-      .catch(() => {
-        console.log("Failed to update employee wage. Will retry later.");
-      });
-  };
-
-  const deleteEmployee = (id) => {
-    Axios.delete(`${baseURL}/delete/${id}`).then(() => {
-      setEmployeeList(
-        employeeList.filter((val) => val.id !== id)
-      );
-    });
-  };
-
-  useEffect(() => {
-    syncPendingRequests();
-  }, []);
-
-  // 同步本地存储的待处理请求
-  const syncPendingRequests = async () => {
-    console.log("sync run");
-    let pendingCreates = JSON.parse(localStorage.getItem("pendingCreates")) || [];
-    let pendingUpdates = JSON.parse(localStorage.getItem("pendingUpdates")) || [];
-  
-    const syncData = async (data, endpoint, type) => {
-      for (const item of data) {
-        try {
-          if (type === "create") {
-            // 如果没有照片但有本地存储的照片文件，则尝试上传
-            if (!item.photo && item.photoFileId) {
-              const image = await getImage(item.photoFileId);
-              const imageUrl = await uploadImage(image.file);
-              if (imageUrl) {
-                item.photo = imageUrl;
-                await deleteImage(item.photoFileId); // 删除 IndexedDB 中的图片
-              item.photoFileId = null; // 删除本地存储的照片 ID
-              }
-            }
-            await Axios.post(`${baseURL}/${endpoint}`, item);
-          } else {
-            await Axios.put(`${baseURL}/${endpoint}`, item);
-          }
-          data = data.filter((emp) => emp !== item);
-        } catch (error) {
-          console.log(`Failed to sync ${type} request. Will retry later.`);
-        }
-      }
-      localStorage.setItem(`pending${type === "create" ? "Creates" : "Updates"}`, JSON.stringify(data));
-    };
-  
-    await syncData(pendingCreates, "create", "create");
-    await syncData(pendingUpdates, "update", "update");
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onLogin(username, password);
   };
 
   return (
-    <div className="App">
-      <div className="information">
-        <label>Name:</label>
-        <input type="text" onChange={(event) => setName(event.target.value)} />
-        <label>Age:</label>
-        <input type="number" onChange={(event) => setAge(event.target.value)} />
-        <label>Country:</label>
-        <input type="text" onChange={(event) => setCountry(event.target.value)} />
-        <label>Position:</label>
-        <input type="text" onChange={(event) => setPosition(event.target.value)} />
-        <label>Wage (year):</label>
-        <input type="number" onChange={(event) => setWage(event.target.value)} />
-        <label>Photo (optional):</label> 
-        <input type="file" onChange={(event) => setPhoto(event.target.files[0])} />
-        <button onClick={addEmployee}>Add Employee</button>
-      </div>
-      <div className="employees">
-        <button onClick={getEmployees}>Show Employees</button>
-        <select onChange={(event) => {
-          const employee = employeeList.find((emp) => emp.id == parseInt(event.target.value));
-          setSelectedEmployee(employee);
-          setNewWage(employee?.wage || 0);
-        }}>
-          <option value="">Select an Employee</option>
-          {employeeList.map((val) => (
-            <option key={val.id} value={val.id}>{val.name} - {val.position}</option>
-          ))}
-        </select>
-        {selectedEmployee && (
-          <div className="employee">
-            <div>
-              <h3>Name: {selectedEmployee.name}</h3>
-              <h3>Age: {selectedEmployee.age}</h3>
-              <h3>Country: {selectedEmployee.country}</h3>
-              <h3>Position: {selectedEmployee.position}</h3>
-              <h3>Wage: {selectedEmployee.wage}</h3>
-              {selectedEmployee.photo && (
-                <img src={selectedEmployee.photo} alt={`${selectedEmployee.name}'s photo`} style={{ width: "800px", height: "600px" }} />
-              )}
-            </div>
-            <div>
-              <input type="number" value={newWage} onChange={(event) => setNewWage(event.target.value)} />
-              <button onClick={() => updateEmployeeWage(selectedEmployee.id)}>Update</button>
-              <button onClick={() => deleteEmployee(selectedEmployee.id)}>Delete</button>
-            </div>
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        placeholder="用戶名"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="密碼"
+      />
+      <button type="submit">登入</button>
+    </form>
+  );
+}
+
+function AddMeterForm({ meterType, campuses, onAddMeter }) {
+  const [meterData, setMeterData] = useState({
+    meter_number: '',
+    location: '',
+    campus_id: '',
+    brand: '',
+    display_unit: '',
+    ct_value: '',
+    wiring_method: ''
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onAddMeter(meterType, meterData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={meterData.meter_number}
+        onChange={(e) => setMeterData({...meterData, meter_number: e.target.value})}
+        placeholder="電表號"
+        required
+      />
+      <input
+        type="text"
+        value={meterData.location}
+        onChange={(e) => setMeterData({...meterData, location: e.target.value})}
+        placeholder="位置"
+        required
+      />
+      <select
+        value={meterData.campus_id}
+        onChange={(e) => setMeterData({...meterData, campus_id: e.target.value})}
+        required
+      >
+        <option value="">選擇校區</option>
+        {campuses.map(campus => (
+          <option key={campus.id} value={campus.id}>{campus.name}</option>
+        ))}
+      </select>
+      {meterType === 'digital' ? (
+        <>
+          <select
+            value={meterData.brand}
+            onChange={(e) => setMeterData({...meterData, brand: e.target.value})}
+            required
+          >
+            <option value="">選擇廠牌</option>
+            <option value="1">施耐德</option>
+            <option value="2">其他</option>
+          </select>
+          <div>
+            顯示單位：
+            <label><input type="checkbox" name="Wh" onChange={(e) => handleUnitChange(e, 'Wh')} /> Wh</label>
+            <label><input type="checkbox" name="VAh" onChange={(e) => handleUnitChange(e, 'VAh')} /> VAh</label>
+            <label><input type="checkbox" name="VARh" onChange={(e) => handleUnitChange(e, 'VARh')} /> VARh</label>
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <>
+          <select
+            value={meterData.ct_value}
+            onChange={(e) => setMeterData({...meterData, ct_value: e.target.value})}
+            required
+          >
+            <option value="">選擇 CT 值</option>
+            <option value="1">有裝電比值</option>
+            <option value="2">沒有</option>
+          </select>
+          <input
+            type="text"
+            value={meterData.wiring_method}
+            onChange={(e) => setMeterData({...meterData, wiring_method: e.target.value})}
+            placeholder="電壓接線方式"
+          />
+        </>
+      )}
+      <button type="submit">添加電表</button>
+    </form>
+  );
+
+  function handleUnitChange(e, unit) {
+    const updatedUnits = e.target.checked
+      ? [...meterData.display_unit.split(','), unit].filter(Boolean).join(',')
+      : meterData.display_unit.split(',').filter(u => u !== unit).join(',');
+    setMeterData({...meterData, display_unit: updatedUnits});
+  }
+}
+
+function MeterHistoryModal({ meterId, meterType, onClose }) {
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await axios.get(`/meter-history/${meterType}/${meterId}`);
+        setHistory(response.data);
+      } catch (error) {
+        console.error('Error fetching meter history:', error);
+      }
+    };
+    fetchHistory();
+  }, [meterId, meterType]);
+
+  return (
+    <div className="modal">
+      <h2>電表歷史記錄</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>讀數時間</th>
+            <th>讀數</th>
+            <th>差額</th>
+            {meterType === 'digital' && (
+              <>
+                <th>廠牌</th>
+                <th>顯示單位</th>
+              </>
+            )}
+            {meterType === 'mechanical' && (
+              <>
+                <th>CT值</th>
+                <th>電壓接線方式</th>
+              </>
+            )}
+            <th>照片</th>
+          </tr>
+        </thead>
+        <tbody>
+          {history.map((record, index) => (
+            <tr key={index}>
+              <td>{new Date(record.reading_time).toLocaleString()}</td>
+              <td>{record.reading_value}</td>
+              <td>{record.difference}</td>
+              {meterType === 'digital' && (
+                <>
+                  <td>{record.brand}</td>
+                  <td>{record.display_unit}</td>
+                </>
+              )}
+              {meterType === 'mechanical' && (
+                <>
+                  <td>{record.ct_value}</td>
+                  <td>{record.wiring_method}</td>
+                </>
+              )}
+              <td>
+                {record.photo_url && (
+                  <a href={record.photo_url} target="_blank" rel="noopener noreferrer">
+                    查看照片
+                  </a>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button onClick={onClose}>關閉</button>
+    </div>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [campuses, setCampuses] = useState([]);
+  const [selectedCampus, setSelectedCampus] = useState('');
+  const [selectedMeterType, setSelectedMeterType] = useState('');
+  const [meters, setMeters] = useState([]);
+  const [selectedMeter, setSelectedMeter] = useState(null);
+  const [reading, setReading] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [showAddMeterForm, setShowAddMeterForm] = useState(false);
+  const [brand, setBrand] = useState('');
+  const [displayUnits, setDisplayUnits] = useState({ Wh: false, VAh: false, VARh: false });
+  const [ctValue, setCtValue] = useState('');
+  const [wiringMethod, setWiringMethod] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // 验证 token 并设置用户
+      fetchCampuses();
+    }
+  }, []);
+
+
+  const fetchCampuses = async () => {
+    try {
+      const response = await axios.get('/campuses');
+      console.log('API response:', response);
+      console.log('Campuses data:', response.data);
+      setCampuses(response.data);
+    } catch (error) {
+      console.error('Error fetching campuses:', error);
+    }
+  };
+  useEffect(() => {
+    console.log('Campuses state updated:', campuses);
+  }, [campuses]); 
+
+  
+  const fetchMeters = async () => {
+    if (!selectedCampus || !selectedMeterType) return;
+    try {
+        const response = await axios.get('/meters');
+        console.log('Fetched meters:', response.data);
+        const filteredMeters = response.data.filter(meter => 
+            meter.campus_id === parseInt(selectedCampus) && 
+            meter.meter_type === selectedMeterType
+        );
+        console.log('Filtered meters:', filteredMeters);
+        setMeters(filteredMeters);
+    } catch (error) {
+        console.error('Error fetching meters:', error);
+    }
+};
+  useEffect(() => {
+    fetchMeters();
+  }, [selectedCampus, selectedMeterType]);
+
+  const handleLogin = async (username, password) => {
+  try {
+    const response = await axios.post('/login', { username, password });
+    localStorage.setItem('token', response.data.token);
+    setUser(response.data.user);
+    fetchCampuses(); // 登入成功後立即獲取校區數據
+  } catch (error) {
+    console.error('Login error:', error);
+    alert('登錄失敗：' + (error.response?.data || error.message));
+  }
+};
+const handleReadingSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedMeter || !reading) {
+    alert('請選擇電表並輸入度數');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('meter_id', selectedMeter.meter_number);
+  formData.append('meter_type', selectedMeterType);
+  formData.append('reading_value', reading);
+  if (selectedMeterType === 'digital') {
+    formData.append('brand', brand);
+    formData.append('display_units', Object.keys(displayUnits).filter(unit => displayUnits[unit]).join(','));
+  } else {
+    formData.append('ct_value', ctValue);
+    formData.append('wiring_method', wiringMethod);
+  }
+  if (photo) {
+    formData.append('photo', photo);
+  }
+
+  try {
+    const response = await axios.post('http://localhost:3001/update-meter-reading', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    console.log('Server response:', response.data);
+    if (response.data.photo_url) {
+      console.log('Uploaded photo URL:', response.data.photo_url);
+    }
+    alert('讀數更新成功');
+    setReading('');
+    setPhoto(null);
+    fetchMeters(); // 重新獲取電表列表以更新顯示
+  } catch (error) {
+    console.error('Error updating reading:', error);
+    alert('更新失敗：' + (error.response?.data?.details || error.message));
+  }
+};
+
+
+  const handleAddMeter = async (meterType, meterData) => {
+    try {
+      const endpoint = meterType === 'digital' ? '/digital-meters' : '/mechanical-meters';
+      await axios.post(endpoint, meterData);
+      alert('電表添加成功');
+      setShowAddMeterForm(false);
+      fetchMeters();
+    } catch (error) {
+      console.error('Error adding meter:', error);
+      alert('添加電表失敗：' + (error.response?.data || error.message));
+    }
+  };
+
+  const handleDisplayUnitChange = (unit) => {
+    setDisplayUnits(prev => ({ ...prev, [unit]: !prev[unit] }));
+  };
+
+  return (
+    <div>
+      {!user ? (
+        <LoginForm onLogin={handleLogin} />
+      ) : (
+        <div>
+          <h1>電表管理系統</h1>
+          <select onChange={e => setSelectedCampus(e.target.value)} value={selectedCampus}>
+            <option value="">選擇校區</option>
+            {campuses.map(campus => (
+              <option key={campus.id} value={campus.id}>{campus.name}</option>
+            ))}
+          </select>
+          <select onChange={e => setSelectedMeterType(e.target.value)} value={selectedMeterType}>
+            <option value="">選擇電表類型</option>
+            <option value="digital">數位式</option>
+            <option value="mechanical">機械式</option>
+          </select>
+          {selectedCampus && selectedMeterType && (
+            <select onChange={e => setSelectedMeter(meters.find(m => m.id === parseInt(e.target.value)))}>
+              <option value="">選擇電表</option>
+              {meters.map(meter => (
+                <option key={meter.id} value={meter.id}>{meter.meter_number}</option>
+              ))}
+            </select>
+          )}
+          {selectedMeter && (
+            <form onSubmit={handleReadingSubmit}>
+              <h2>電表號: {selectedMeter.meter_number}</h2>
+              <div>
+                <label>位置: {selectedMeter.location}</label>
+              </div>
+              {selectedMeterType === 'digital' ? (
+                <>
+                  <div>
+                    <label>廠牌: </label>
+                    <select value={brand} onChange={e => setBrand(e.target.value)}>
+                      <option value="">選擇廠牌</option>
+                      <option value="1">施耐德</option>
+                      <option value="2">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>顯示單位: </label>
+                    <label><input type="checkbox" checked={displayUnits.Wh} onChange={() => handleDisplayUnitChange('Wh')} /> Wh</label>
+                    <label><input type="checkbox" checked={displayUnits.VAh} onChange={() => handleDisplayUnitChange('VAh')} /> VAh</label>
+                    <label><input type="checkbox" checked={displayUnits.VARh} onChange={() => handleDisplayUnitChange('VARh')} /> VARh</label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label>CT值: </label>
+                    <select value={ctValue} onChange={e => setCtValue(e.target.value)}>
+                      <option value="">選擇 CT 值</option>
+                      <option value="1">有裝電比值</option>
+                      <option value="2">沒有</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>電壓接線方式: </label>
+                    <input 
+                      type="text" 
+                      value={wiringMethod} 
+                      onChange={e => setWiringMethod(e.target.value)} 
+                      placeholder="電壓接線方式"
+                    />
+                  </div>
+                </>
+              )}
+              <div>
+                <label>新讀數: </label>
+                <input 
+                  type="number" 
+                  value={reading} 
+                  onChange={e => setReading(e.target.value)} 
+                  placeholder="新電表度數" 
+                  required
+                />
+              </div>
+              <div>
+                <label>上傳照片: </label>
+                <input 
+                  type="file" 
+                  onChange={e => setPhoto(e.target.files[0])} 
+                  accept="image/*"
+                />
+              </div>
+              <button type="button" onClick={() => setShowHistory(true)}>查看歷史記錄</button>
+              <button type="submit">更新讀數</button>
+            </form>
+          )}
+          {showHistory && selectedMeter && (
+            <MeterHistoryModal 
+              meterId={selectedMeter.meter_number}
+              meterType={selectedMeterType}
+              onClose={() => setShowHistory(false)}
+            />
+          )}
+          {user.role === 'admin' && (
+              <button onClick={() => {/* 顯示用戶管理界面 */}}>管理用戶</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 export default App;
+
