@@ -11,21 +11,28 @@ function LoginForm({ onLogin }) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="用戶名"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="密碼"
-      />
-      <button type="submit">登入</button>
-    </form>
+    <div className="form-structor">
+      <div className="signup">
+        <h2 className="form-title" id="signup"><span>or</span>Log in</h2>
+        <div className="form-holder">
+          <input
+            type="text"
+            className="input"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Name"
+          />
+          <input
+            type="password"
+            className="input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+          />
+        </div>
+        <button className="submit-btn" type="submit" onClick={handleSubmit}>Log in</button>
+      </div>
+    </div>
   );
 }
 
