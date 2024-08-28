@@ -13,7 +13,7 @@ function LoginForm({ onLogin }) {
   return (
     <div className="form-structor">
       <div className="signup">
-        <h2 className="form-title" id="signup"><span>or</span>Log in</h2>
+        <h2 className="form-title" id="signup">Log in</h2>
         <div className="form-holder">
           <input
             type="text"
