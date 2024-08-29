@@ -13,6 +13,7 @@ function ReaderView({ user }) {
     const [photo, setPhoto] = useState(null);
     const [showHistory, setShowHistory] = useState(false);
     const [fileInputKey, setFileInputKey] = useState(Date.now()); // 用于强制重新渲染文件输入框
+    
 
     useEffect(() => {
         fetchCampuses();
@@ -98,6 +99,7 @@ function ReaderView({ user }) {
             setPhoto(null);
             setFileInputKey(Date.now()); // 重置文件输入框
             fetchMeters(); // 重新獲取電表列表以更新顯示
+            setShowHistory(true);
         } catch (error) {
             console.error('Error updating reading:', error);
 
@@ -162,7 +164,7 @@ function ReaderView({ user }) {
                             onChange={e => setPhoto(e.target.files[0])} 
                             accept="image/*"
                         />
-                        {photo && <p>選擇的檔案: {photo.name}</p>} {/* 显示文件名 */}
+
                     </div>
                     <button type="button" onClick={() => setShowHistory(true)}>查看歷史記錄</button>
                     <button type="submit">更新讀數</button>
