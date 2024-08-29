@@ -8,8 +8,12 @@ const openDB = () => {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
-      db.createObjectStore('formData', { keyPath: 'meter_id' }); // 新增這一行
+      if (!db.objectStoreNames.contains('images')) {
+        db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains('formData')) {
+        db.createObjectStore('formData', { keyPath: 'meter_id' });
+      }
     };
 
     request.onsuccess = (event) => {
@@ -21,6 +25,7 @@ const openDB = () => {
     };
   });
 };
+
 
 // Store image in IndexedDB
 export const storeImage = async (imageId, imageFile) => {
