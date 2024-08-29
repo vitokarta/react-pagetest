@@ -37,7 +37,7 @@ apiService.interceptors.response.use(
         }
       } else if (error.request) {
         // 請求已經發出，但沒有收到響應
-        alert('無法連接到服務器，請檢查您的網絡連接');
+        //alert('無法連接到服務器，請檢查您的網絡連接');
       } else {
         // 在設置請求時發生了一些事情，觸發了錯誤
         alert('發生錯誤：' + error.message);

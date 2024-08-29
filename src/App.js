@@ -10,11 +10,6 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      verifyToken(token);
-    }
-
     // Add an event listener to handle the app going online
     window.addEventListener('online', handleOnline);
 
@@ -28,22 +23,12 @@ function App() {
     };
   }, []);
 
-  const verifyToken = async (token) => {
-    try {
-      const response = await apiService.get('/verify-token', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(response.data.user);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      localStorage.removeItem('token');
-    }
-  };
+  // Removed token verification logic
 
   const handleLogin = async (username, password) => {
     try {
       const response = await apiService.post('/login', { username, password });
-      localStorage.setItem('token', response.data.token);
+      // Assuming login sets some user data
       setUser(response.data.user);
     } catch (error) {
       console.error('Login error:', error);
@@ -52,7 +37,6 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
     setUser(null);
   };
 
@@ -61,11 +45,14 @@ function App() {
     try {
       const offlineData = await getAllOfflineData(); // Get all offline data from IndexedDB
 
-      for (const data of offlineData) {
-        await retryUpload(data); // Retry uploading each data entry
+      if (offlineData.length > 0) { // Check if there is any offline data
+        for (const data of offlineData) {
+          await retryUpload(data); // Retry uploading each data entry
+        }
+
+        alert('All offline data successfully uploaded'); // Alert if all data is uploaded
       }
 
-      console.log('All offline data successfully uploaded');
     } catch (error) {
       console.error('Error uploading offline data:', error);
     }
