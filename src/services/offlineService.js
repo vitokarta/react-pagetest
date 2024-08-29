@@ -4,7 +4,7 @@ import apiService from './apiService'; // 导入 apiService
 // IndexedDB helper functions
 const openDB = () => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('imageDB', 1);
+    const request = indexedDB.open('imageDB', 2);
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
