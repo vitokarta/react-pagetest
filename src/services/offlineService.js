@@ -121,33 +121,32 @@ export const uploadImage = async (imageFile) => {
 };
 
 export const retryUpload = async (formData) => {
-    try {
-        // 如果有 photoFileId，則需要首先上傳圖片
-        if (formData.photoFileId) {
-            const photo = await getImage(formData.photoFileId); // 從 IndexedDB 中獲取圖片
-            if (photo) {
-                const imageUrl = await uploadImage(photo.file);
-                if (imageUrl) {
-                    formData.photo = imageUrl; // 更新圖片 URL
-                    await deleteImage(formData.photoFileId); // 刪除已上傳的圖片
-                    formData.photoFileId = null; // 重置 ID
-                }
-            }
-        }
+  try {
+      // 如果有 photoFileId，則需要首先上傳圖片
+      if (formData.photoFileId) {
+          const photo = await getImage(formData.photoFileId); // 從 IndexedDB 中獲取圖片
+          if (photo) {
+              const imageUrl = await uploadImage(photo.file);
+              if (imageUrl) {
+                  formData.photo_url = imageUrl; // 更新圖片 URL
+                  await deleteImage(formData.photoFileId); // 刪除已上傳的圖片
+                  formData.photoFileId = null; // 重置 ID
+              }
+          }
+      }
 
-        // 將更新後的表單數據提交到伺服器
-        const response = await apiService.post('/update-meter-reading', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        });
+      // 將更新後的表單數據提交到伺服器
+      const response = await apiService.post('/update-meter-reading', formData, {
+          headers: {
+              'Content-Type': 'application/json'
+          }
+      });
 
-        // 如果成功，從 IndexedDB 刪除該表單數據
-        await deleteFormData(formData.meter_id);
+      // 如果成功，從 IndexedDB 刪除該表單數據
+      await deleteFormData(formData.meter_id);
 
-        console.log('Upload successful:', response.data);
-    } catch (error) {
-        console.error('Retry upload failed:', error);
-    }
+      console.log('Upload successful:', response.data);
+  } catch (error) {
+      console.error('Retry upload failed:', error);
+  }
 };
-  
