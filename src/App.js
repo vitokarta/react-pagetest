@@ -18,6 +18,11 @@ function App() {
     // Add an event listener to handle the app going online
     window.addEventListener('online', handleOnline);
 
+    // Check if we're online on initial load
+    if (navigator.onLine) {
+      handleOnline();
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
     };
