@@ -1,0 +1,259 @@
+import React, { useState, useEffect } from 'react';
+import apiService from '../services/apiService';
+import AddMeterForm from './AddMeterForm';
+import MeterHistoryModal from './MeterHistoryModal';
+
+function DataManagerView({ user }) {
+    const [campuses, setCampuses] = useState([]);
+    const [selectedCampus, setSelectedCampus] = useState('');
+    const [selectedMeterType, setSelectedMeterType] = useState('');
+    const [meters, setMeters] = useState([]);
+    const [selectedMeter, setSelectedMeter] = useState(null);
+    const [showAddMeterForm, setShowAddMeterForm] = useState(false);
+    const [showAddCampusForm, setShowAddCampusForm] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [newCampusName, setNewCampusName] = useState('');
+    const [editedMeterInfo, setEditedMeterInfo] = useState({
+      brand: '',
+      display_unit: [],
+      ct_value: '',
+      wiring_method: ''
+    });
+  
+    useEffect(() => {
+      fetchCampuses();
+    }, []);
+  
+    useEffect(() => {
+      if (selectedCampus && selectedMeterType) {
+        fetchMeters();
+      }
+    }, [selectedCampus, selectedMeterType]);
+  
+    useEffect(() => {
+      if (selectedMeter) {
+        setEditedMeterInfo({
+          brand: selectedMeter.brand || '',
+          display_unit: selectedMeter.display_unit ? selectedMeter.display_unit.split(',') : [],
+          ct_value: selectedMeter.ct_value || '',
+          wiring_method: selectedMeter.wiring_method || ''
+        });
+      }
+    }, [selectedMeter]);
+  
+    const fetchCampuses = async () => {
+      try {
+        const response = await apiService.get('/campuses');
+        setCampuses(response.data);
+      } catch (error) {
+        console.error('Error fetching campuses:', error);
+      }
+    };
+  
+    const fetchMeters = async () => {
+      try {
+        const response = await apiService.get('/meters');
+        const filteredMeters = response.data.filter(meter => 
+          meter.campus_id === parseInt(selectedCampus) && 
+          meter.meter_type === selectedMeterType
+        );
+        setMeters(filteredMeters);
+      } catch (error) {
+        console.error('Error fetching meters:', error);
+      }
+    };
+  
+    const handleAddMeter = async (meterType, meterData) => {
+      try {
+        const endpoint = meterType === 'digital' ? '/digital-meters' : '/mechanical-meters';
+        await apiService.post(endpoint, meterData);
+        alert('電表添加成功');
+        setShowAddMeterForm(false);
+        fetchMeters();
+      } catch (error) {
+        console.error('Error adding meter:', error);
+        alert('添加電表失敗：' + (error.response?.data || error.message));
+      }
+    };
+  
+    const handleAddCampus = async (e) => {
+      e.preventDefault();
+      try {
+        await apiService.post('/campuses', { name: newCampusName });
+        alert('校區添加成功');
+        setShowAddCampusForm(false);
+        setNewCampusName('');
+        fetchCampuses();
+      } catch (error) {
+        console.error('Error adding campus:', error);
+        alert('添加校區失敗：' + (error.response?.data || error.message));
+      }
+    };
+  
+    const handleDisplayUnitChange = (unit) => {
+      setEditedMeterInfo(prevInfo => {
+        const updatedUnits = prevInfo.display_unit.includes(unit)
+          ? prevInfo.display_unit.filter(u => u !== unit)
+          : [...prevInfo.display_unit, unit];
+        return { ...prevInfo, display_unit: updatedUnits };
+      });
+    };
+  
+    const handleEditMeter = async (e) => {
+      e.preventDefault();
+      try {
+        const endpoint = selectedMeterType === 'digital' ? '/digital-meters' : '/mechanical-meters';
+        const updatedMeterInfo = {
+          ...editedMeterInfo,
+          display_unit: editedMeterInfo.display_unit.join(',')
+        };
+        await apiService.put(`${endpoint}/${selectedMeter.id}`, updatedMeterInfo);
+        alert('電表信息更新成功');
+        fetchMeters();
+      } catch (error) {
+        console.error('Error updating meter:', error);
+        alert('更新電表失敗：' + (error.response?.data || error.message));
+      }
+    };
+  
+    return (
+      <div>
+        <h2>電表管理</h2>
+        <button onClick={() => setShowAddCampusForm(true)}>新增校區</button>
+        <button onClick={() => setShowAddMeterForm(true)}>新增電表</button>
+        
+        <div>
+          <select onChange={e => setSelectedCampus(e.target.value)} value={selectedCampus}>
+            <option value="">選擇校區</option>
+            {campuses.map(campus => (
+              <option key={campus.id} value={campus.id}>{campus.name}</option>
+            ))}
+          </select>
+          <select onChange={e => setSelectedMeterType(e.target.value)} value={selectedMeterType}>
+            <option value="">選擇電表類型</option>
+            <option value="digital">數位式</option>
+            <option value="mechanical">機械式</option>
+          </select>
+          {selectedCampus && selectedMeterType && (
+            <select onChange={e => setSelectedMeter(meters.find(m => m.id === parseInt(e.target.value)))}>
+              <option value="">選擇電表</option>
+              {meters.map(meter => (
+                <option key={meter.id} value={meter.id}>{meter.meter_number}</option>
+              ))}
+            </select>
+          )}
+        </div>
+  
+        {selectedMeter && (
+          <form onSubmit={handleEditMeter}>
+            <h3>編輯電表信息</h3>
+            <div>
+              <label>電表號: {selectedMeter.meter_number}</label>
+            </div>
+            <div>
+              <label>位置: {selectedMeter.location}</label>
+            </div>
+            {selectedMeterType === 'digital' ? (
+              <>
+                <div>
+                  <label>廠牌: </label>
+                  <select
+                    value={editedMeterInfo.brand}
+                    onChange={e => setEditedMeterInfo({...editedMeterInfo, brand: e.target.value})}
+                  >
+                    <option value="">選擇廠牌</option>
+                    <option value="1">施耐德</option>
+                    <option value="2">其他</option>
+                  </select>
+                </div>
+                <div>
+                  <label>顯示單位: </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editedMeterInfo.display_unit.includes('Wh')}
+                      onChange={() => handleDisplayUnitChange('Wh')}
+                    /> Wh
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editedMeterInfo.display_unit.includes('VAh')}
+                      onChange={() => handleDisplayUnitChange('VAh')}
+                    /> VAh
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editedMeterInfo.display_unit.includes('VARh')}
+                      onChange={() => handleDisplayUnitChange('VARh')}
+                    /> VARh
+                  </label>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label>CT值: </label>
+                  <select
+                    value={editedMeterInfo.ct_value}
+                    onChange={e => setEditedMeterInfo({...editedMeterInfo, ct_value: e.target.value})}
+                  >
+                    <option value="">選擇 CT 值</option>
+                    <option value="1">有裝電比值</option>
+                    <option value="2">沒有</option>
+                  </select>
+                </div>
+                <div>
+                  <label>電壓接線方式: </label>
+                  <input 
+                    type="text" 
+                    value={editedMeterInfo.wiring_method}
+                    onChange={e => setEditedMeterInfo({...editedMeterInfo, wiring_method: e.target.value})}
+                    placeholder="電壓接線方式"
+                  />
+                </div>
+              </>
+            )}
+            <button type="submit">更新電表信息</button>
+          </form>
+        )}
+  
+        {showAddMeterForm && (
+          <AddMeterForm
+            meterType={selectedMeterType}
+            campuses={campuses}
+            onAddMeter={handleAddMeter}
+          />
+        )}
+  
+        {showAddCampusForm && (
+          <form onSubmit={handleAddCampus}>
+            <h3>新增校區</h3>
+            <input
+              type="text"
+              value={newCampusName}
+              onChange={e => setNewCampusName(e.target.value)}
+              placeholder="輸入新校區名稱"
+              required
+            />
+            <button type="submit">添加校區</button>
+          </form>
+        )}
+  
+        {selectedMeter && (
+          <button onClick={() => setShowHistory(true)}>查看歷史記錄</button>
+        )}
+  
+        {showHistory && selectedMeter && (
+          <MeterHistoryModal 
+            meterId={selectedMeter.meter_number}
+            meterType={selectedMeterType}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+export default DataManagerView;
