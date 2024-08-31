@@ -62,7 +62,7 @@ function ReaderView({ user }) {
       }
   
       try {
-        const response = await apiService.post('http://localhost:3001/update-meter-reading', formData, {
+        const response = await apiService.post('/update-meter-reading', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
