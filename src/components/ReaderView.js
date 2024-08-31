@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import MeterHistoryModal from './MeterHistoryModal';
+import { storeFormData } from './services/offlineservice';
 
 function ReaderView({ user }) {
     const [campuses, setCampuses] = useState([]);
@@ -47,36 +48,51 @@ function ReaderView({ user }) {
     }, [selectedCampus, selectedMeterType]);
   
     const handleReadingSubmit = async (e) => {
-      e.preventDefault();
-      if (!selectedMeter || !reading) {
-        alert('請選擇電表並輸入度數');
-        return;
-      }
-  
-      const formData = new FormData();
-      formData.append('meter_id', selectedMeter.meter_number);
-      formData.append('meter_type', selectedMeterType);
-      formData.append('reading_value', reading);
-      if (photo) {
-        formData.append('photo', photo);
-      }
-  
-      try {
-        const response = await apiService.post('/update-meter-reading', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
+        e.preventDefault();
+        if (!selectedMeter || !reading) {
+          alert('請選擇電表並輸入度數');
+          return;
+        }
+      
+        const formData = new FormData();
+        formData.append('meter_id', selectedMeter.meter_number);
+        formData.append('meter_type', selectedMeterType);
+        formData.append('reading_value', reading);
+        if (photo) {
+          formData.append('photo', photo);
+        }
+      
+        try {
+          const response = await apiService.post('/update-meter-reading', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+          alert('讀數更新成功');
+          setReading('');
+          setPhoto(null);
+          setFileInputKey(Date.now()); // 重置文件输入框
+          fetchMeters();
+        } catch (error) {
+          console.error('Error updating reading:', error);
+          alert('更新失敗：' + (error.response?.data?.details || error.message));
+          
+          // Store form data in IndexedDB for retry later
+          try {
+            await storeFormData({
+              meter_id: selectedMeter.meter_number,
+              meter_type: selectedMeterType,
+              reading_value: reading,
+              photo: photo
+            });
+            alert('數據已儲存離線，稍後將自動重新上傳');
+          } catch (storeError) {
+            console.error('Error storing offline data:', storeError);
+            alert('數據儲存失敗：' + storeError.message);
           }
-        });
-        alert('讀數更新成功');
-        setReading('');
-        setPhoto(null);
-        setFileInputKey(Date.now()); // 重置文件输入框
-        fetchMeters();
-      } catch (error) {
-        console.error('Error updating reading:', error);
-        alert('更新失敗：' + (error.response?.data?.details || error.message));
-      }
-    };
+        }
+      };
+      
     const handleEditReading = async () => {
         try {
           const response = await apiService.put(`/update-meter-reading/${selectedMeter.meter_number}/${selectedReading.id}`, {
