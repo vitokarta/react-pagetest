@@ -19,6 +19,9 @@ function DataManagerView({ user }) {
       ct_value: '',
       wiring_method: ''
     });
+    const [showEditReadingModal, setShowEditReadingModal] = useState(false);
+    const [selectedReading, setSelectedReading] = useState(null);
+    const [newReadingValue, setNewReadingValue] = useState('');
   
     useEffect(() => {
       fetchCampuses();
@@ -115,7 +118,21 @@ function DataManagerView({ user }) {
         alert('更新電表失敗：' + (error.response?.data || error.message));
       }
     };
-  
+    const handleEditReading = async () => {
+        try {
+          const response = await apiService.put(`/update-meter-reading/${selectedMeter.meter_number}/${selectedReading.id}`, {
+            new_reading_value: newReadingValue,
+            meter_type: selectedMeterType
+          });
+          alert('讀數更新成功');
+          setShowEditReadingModal(false);
+          fetchMeters();
+        } catch (error) {
+          console.error('Error updating reading:', error);
+          alert('更新失敗：' + (error.response?.data?.message || error.message));
+        }
+      };
+    
     return (
       <div>
         <h2>電表管理</h2>
@@ -246,14 +263,35 @@ function DataManagerView({ user }) {
         )}
   
         {showHistory && selectedMeter && (
-          <MeterHistoryModal 
-            meterId={selectedMeter.meter_number}
-            meterType={selectedMeterType}
-            onClose={() => setShowHistory(false)}
-          />
+            <MeterHistoryModal 
+                meterId={selectedMeter.meter_number}
+                meterType={selectedMeterType}
+                onClose={() => setShowHistory(false)}
+                onEditReading={(reading) => {
+                    setSelectedReading(reading);
+                    setNewReadingValue(reading.reading_value);
+                    setShowEditReadingModal(true);
+                }}
+                userRole={user.role}
+            />
         )}
-      </div>
+
+        {showEditReadingModal && (
+            <div className="modal">
+            <h3>修改讀數</h3>
+            <p>當前讀數: {selectedReading.reading_value}</p>
+            <input
+                type="number"
+                value={newReadingValue}
+                onChange={(e) => setNewReadingValue(e.target.value)}
+                placeholder="新讀數"
+            />
+            <button onClick={handleEditReading}>確認修改</button>
+            <button onClick={() => setShowEditReadingModal(false)}>取消</button>
+            </div>
+        )}
+        </div>
     );
-  }
+    }
 
 export default DataManagerView;

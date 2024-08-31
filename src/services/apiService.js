@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiService = axios.create({
-  baseURL: 'https://servertest1-e5f153f6ef40.herokuapp.com', // 替換為您的 API 基礎 URL http://localhost:3001
+  baseURL: 'http://localhost:3001', // 替換為您的 API 基礎 URL https://servertest1-e5f153f6ef40.herokuapp.com
 });
 
 apiService.interceptors.request.use(
@@ -37,7 +37,7 @@ apiService.interceptors.response.use(
         }
       } else if (error.request) {
         // 請求已經發出，但沒有收到響應
-        //alert('無法連接到服務器，請檢查您的網絡連接');
+        alert('無法連接到服務器，請檢查您的網絡連接');
       } else {
         // 在設置請求時發生了一些事情，觸發了錯誤
         alert('發生錯誤：' + error.message);

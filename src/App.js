@@ -4,12 +4,18 @@ import LoginForm from './components/LoginForm';
 import ReaderView from './components/ReaderView';
 import DataManagerView from './components/DataManagerView';
 import AdminView from './components/AdminView';
-import { getAllOfflineData, retryUpload } from './services/offlineService'; // Import offline functions
+import { getAllOfflineData, retryUpload } from './services/offlineService'; // 导入离线服务
+
 
 function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      verifyToken(token);
+    }
+
     // Add an event listener to handle the app going online
     window.addEventListener('online', handleOnline);
 
@@ -23,12 +29,22 @@ function App() {
     };
   }, []);
 
-  // Removed token verification logic
+  const verifyToken = async (token) => {
+    try {
+      const response = await apiService.get('/verify-token', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      localStorage.removeItem('token');
+    }
+  };
 
   const handleLogin = async (username, password) => {
     try {
       const response = await apiService.post('/login', { username, password });
-      // Assuming login sets some user data
+      localStorage.setItem('token', response.data.token);
       setUser(response.data.user);
     } catch (error) {
       console.error('Login error:', error);
@@ -37,6 +53,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     setUser(null);
   };
 
@@ -44,7 +61,7 @@ function App() {
   const handleOnline = async () => {
     try {
       const offlineData = await getAllOfflineData(); // Get all offline data from IndexedDB
-
+      
       if (offlineData.length > 0) { // Check if there is any offline data
         for (const data of offlineData) {
           await retryUpload(data); // Retry uploading each data entry
@@ -57,6 +74,7 @@ function App() {
       console.error('Error uploading offline data:', error);
     }
   };
+
 
   return (
     <div>
@@ -76,3 +94,4 @@ function App() {
 }
 
 export default App;
+
