@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import MeterHistoryModal from './MeterHistoryModal';
-import { storeFormData } from './services/offlineService';
+import { storeFormData } from '../services/offlineService';
 
 function ReaderView({ user }) {
     const [campuses, setCampuses] = useState([]);
