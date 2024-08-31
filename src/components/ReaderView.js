@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import MeterHistoryModal from './MeterHistoryModal';
-import { storeFormData } from './services/offlineservice';
+import { storeFormData } from './services/offlineService';
 
 function ReaderView({ user }) {
     const [campuses, setCampuses] = useState([]);
@@ -92,7 +92,7 @@ function ReaderView({ user }) {
           }
         }
       };
-      
+
     const handleEditReading = async () => {
         try {
           const response = await apiService.put(`/update-meter-reading/${selectedMeter.meter_number}/${selectedReading.id}`, {
