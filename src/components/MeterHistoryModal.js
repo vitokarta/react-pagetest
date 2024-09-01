@@ -27,7 +27,7 @@ function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRol
   return (
     <div className="modal">
       <h2>電表歷史記錄</h2>
-      <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
         <table>
           <thead>
             <tr>
