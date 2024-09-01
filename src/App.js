@@ -50,6 +50,7 @@ function App() {
       if (offlineData.length > 0) { // Check if there is any offline data
         for (const data of offlineData) {
           await retryUpload(data); // Retry uploading each data entry
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         alert('All offline data successfully uploaded'); // Alert if all data is uploaded
