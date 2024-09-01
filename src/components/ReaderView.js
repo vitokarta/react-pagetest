@@ -75,7 +75,6 @@ function ReaderView({ user }) {
           fetchMeters();
         } catch (error) {
           console.error('Error updating reading:', error);
-          
           // Store form data in IndexedDB for retry later
           try {
             await storeFormData({
@@ -84,7 +83,7 @@ function ReaderView({ user }) {
               reading_value: reading,
               photo: photo
             });
-            alert('更新失敗，數據已儲存離線，稍後將自動重新上傳');
+            alert('數據已儲存離線，稍後將自動重新上傳');
           } catch (storeError) {
             console.error('Error storing offline data:', storeError);
             alert('數據儲存失敗：' + storeError.message);

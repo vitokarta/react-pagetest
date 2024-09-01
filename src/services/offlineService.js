@@ -8,7 +8,8 @@ const openDB = () => {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       if (!db.objectStoreNames.contains('formData')) {
-        db.createObjectStore('formData', { keyPath: 'id', autoIncrement: true }); // 使用 autoIncrement 生成唯一主键
+        const objectStore = db.createObjectStore('formData', { keyPath: 'id', autoIncrement: true }); // 使用 autoIncrement 生成唯一主鍵
+        objectStore.createIndex('meter_id', 'meter_id', { unique: false }); // 創建一個非唯一索引
       }
     };
 
@@ -21,6 +22,7 @@ const openDB = () => {
     };
   });
 };
+
 
 
 
