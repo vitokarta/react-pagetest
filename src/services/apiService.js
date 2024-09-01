@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const apiService = axios.create({
   baseURL: 'https://servertest1-e5f153f6ef40.herokuapp.com', // 替換為您的 API 基礎 URL http://localhost:3001
+  timeout: 3000, // 設置請求超時時間為 3000 毫秒 (3 秒)
 });
 
 apiService.interceptors.request.use(
