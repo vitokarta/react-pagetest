@@ -12,9 +12,6 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      verifyToken(token);
-    }
 
     // Add an event listener to handle the app going online
     window.addEventListener('online', handleOnline);
