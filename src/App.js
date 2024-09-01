@@ -29,18 +29,6 @@ function App() {
     };
   }, []);
 
-  const verifyToken = async (token) => {
-    try {
-      const response = await apiService.get('/verify-token', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(response.data.user);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      localStorage.removeItem('token');
-    }
-  };
-
   const handleLogin = async (username, password) => {
     try {
       const response = await apiService.post('/login', { username, password });
