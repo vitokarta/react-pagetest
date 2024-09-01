@@ -7,9 +7,6 @@ const openDB = () => {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains('images')) {
-        db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
-      }
       if (!db.objectStoreNames.contains('formData')) {
         db.createObjectStore('formData', { keyPath: 'meter_id' });
       }
@@ -30,7 +27,7 @@ export const storeFormData = async (formData) => {
   const db = await openDB();
   const transaction = db.transaction('formData', 'readwrite');
   const store = transaction.objectStore('formData');
-  store.put(formData);
+  store.add(formData);  // Change from `put` to `add`
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = (event) => reject(event.target.error);
