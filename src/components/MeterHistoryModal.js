@@ -3,18 +3,33 @@ import apiService from '../services/apiService';
 
 function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRole }) {
   const [history, setHistory] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (loading) return;
+      setLoading(true);
       try {
-        const response = await apiService.get(`/meter-history/${meterType}/${meterId}`);
-        setHistory(response.data);
+        const response = await apiService.get(`/meter-history/${meterType}/${meterId}?page=${page}`);
+        setHistory(prev => [...prev, ...response.data]);
+        setHasMore(response.data.length > 0);
       } catch (error) {
         console.error('Error fetching meter history:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchHistory();
-  }, [meterId, meterType]);
+  }, [meterId, meterType, page]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop === clientHeight && hasMore) {
+      setPage(prev => prev + 1);
+    }
+  };
 
   const canEdit = (readingTime) => {
     if (userRole === 'data_manager') return true;
@@ -25,7 +40,7 @@ function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRol
   };
 
   return (
-    <div className="modal">
+    <div className="modal" onScroll={handleScroll} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
       <h2>電表歷史記錄</h2>
       <table>
         <thead>
@@ -59,6 +74,8 @@ function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRol
           ))}
         </tbody>
       </table>
+      {loading && <p>加載中...</p>}
+      {!hasMore && <p>沒有更多記錄</p>}
       <button onClick={onClose}>關閉</button>
     </div>
   );
