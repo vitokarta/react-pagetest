@@ -27,7 +27,7 @@ function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRol
   return (
     <div className="modal">
       <h2>電表歷史記錄</h2>
-      <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
         <table>
           <thead>
             <tr>
@@ -40,7 +40,7 @@ function MeterHistoryModal({ meterId, meterType, onClose, onEditReading, userRol
           </thead>
           <tbody>
             {history.map((record) => (
-              <tr key={record.id}>
+              <tr key={record.id} style={{ height: '25px' }}> {/* Adjust the height value as needed */}
                 <td>{new Date(record.reading_time).toLocaleString()}</td>
                 <td>{record.reading_value}</td>
                 <td>{record.difference}</td>
