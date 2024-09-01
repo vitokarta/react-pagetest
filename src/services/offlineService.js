@@ -8,7 +8,7 @@ const openDB = () => {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       if (!db.objectStoreNames.contains('formData')) {
-        db.createObjectStore('formData', { keyPath: 'meter_id' });
+        db.createObjectStore('formData', { keyPath: 'id', autoIncrement: true }); // 使用 autoIncrement 生成唯一主键
       }
     };
 
@@ -21,6 +21,7 @@ const openDB = () => {
     };
   });
 };
+
 
 
 export const storeFormData = async (formData) => {
@@ -48,11 +49,22 @@ export const getAllOfflineData = async () => {
   
 
 
-export const deleteFormData = async (meterId) => {
+export const deleteFormDataByMeterId = async (meterId) => {
   const db = await openDB();
   const transaction = db.transaction('formData', 'readwrite');
   const store = transaction.objectStore('formData');
-  store.delete(meterId);
+  
+  const index = store.index('meter_id'); // 假设你为 meter_id 创建了一个索引
+  const request = index.openCursor(IDBKeyRange.only(meterId));
+  
+  request.onsuccess = (event) => {
+    const cursor = event.target.result;
+    if (cursor) {
+      cursor.delete();  // 删除当前指向的记录
+      cursor.continue();  // 继续遍历其他同 meter_id 的记录
+    }
+  };
+
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = (event) => reject(event.target.error);
@@ -60,22 +72,19 @@ export const deleteFormData = async (meterId) => {
 };
 
   
-
 export const retryUpload = async (formData) => {
   try {
-    // 将更新后的表单数据提交到服务器
     const response = await apiService.post('/update-meter-reading', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
 
-    // 如果成功，从 IndexedDB 删除该表单数据
-    await deleteFormData(formData.meter_id);
+    // 成功上传后，删除该条数据
+    await deleteFormDataByMeterId(formData.meter_id);
 
     console.log('Upload successful:', response.data);
   } catch (error) {
     console.error('Retry upload failed:', error);
   }
 };
-  
